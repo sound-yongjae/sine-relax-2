@@ -172,8 +172,8 @@ const veils = Array.from({length: VEIL_COUNT}, (_, i) => ({
   phase:  rng() * Math.PI * 2,
   speed:  0.00012 + rng() * 0.00016,  // 물결 속도
   amp:    0.04 + rng() * 0.06,        // 물결 진폭 (비율)
-  alpha:  0.022 + rng() * 0.032,      // 투명도
-  thick:  0.18 + rng() * 0.28,        // 두께 (비율)
+  alpha:  0.06 + rng() * 0.05,        // 투명도
+  thick:  0.25 + rng() * 0.30,        // 두께 (비율)
   skew:   (rng() - 0.5) * 0.3,        // 기울기
 }));
 
@@ -183,10 +183,10 @@ const particles = Array.from({length: PARTICLE_COUNT}, () => ({
   x: rng(), y: rng(),
   vx: (rng() - 0.5) * 0.00006,
   vy: (rng() - 0.5) * 0.00005,
-  alpha: 0.04 + rng() * 0.1,
+  alpha: 0.08 + rng() * 0.14,
   phase: rng() * Math.PI * 2,
   speed: 0.0005 + rng() * 0.0008,
-  r: 0.5 + rng() * 1.2,
+  r: 0.8 + rng() * 1.7,
 }));
 
 let isActive = false;
@@ -196,7 +196,7 @@ function drawFrame(t) {
   updateEnergy();
 
   // 검은 베이스 (잔상 거의 없이 매 프레임 완전히)
-  ctx.fillStyle = 'rgba(0,0,0,0.82)';
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
   ctx.fillRect(0, 0, W, H);
 
   // audioEnergy로 breathe 증폭: 소리 클수록 커튼이 더 넘실거림
@@ -212,14 +212,14 @@ function drawFrame(t) {
 
     const centerY = v.y * H + Math.sin(v.phase) * v.amp * H;
     const halfH   = v.thick * H * breathe * 0.5;
-    const alphaVal = isActive ? v.alpha * (0.9 + 0.3 * Math.sin(v.phase * 0.6)) * (1 + energyBoost * 1.2) : v.alpha * 0.35;
+    const alphaVal = isActive ? v.alpha * (0.9 + 0.3 * Math.sin(v.phase * 0.6)) * (1 + energyBoost * 1.2) : v.alpha * 0.55;
 
     const grd = ctx.createLinearGradient(0, centerY - halfH, 0, centerY + halfH);
-    grd.addColorStop(0,   `rgba(195,200,205,0)`);
-    grd.addColorStop(0.3, `rgba(200,205,210,${alphaVal * 0.6})`);
-    grd.addColorStop(0.5, `rgba(210,215,218,${alphaVal})`);
-    grd.addColorStop(0.7, `rgba(200,205,210,${alphaVal * 0.6})`);
-    grd.addColorStop(1,   `rgba(195,200,205,0)`);
+    grd.addColorStop(0,   `rgba(200,205,210,0)`);
+    grd.addColorStop(0.3, `rgba(212,217,222,${alphaVal * 0.7})`);
+    grd.addColorStop(0.5, `rgba(225,230,232,${alphaVal})`);
+    grd.addColorStop(0.7, `rgba(212,217,222,${alphaVal * 0.7})`);
+    grd.addColorStop(1,   `rgba(200,205,210,0)`);
 
     // 기울어진 커튼을 위해 transform 적용
     ctx.save();
