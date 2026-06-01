@@ -193,23 +193,26 @@ let isActive = false;
 
 function drawFrame(t) {
   requestAnimationFrame(drawFrame);
+  updateEnergy();
 
   // 검은 베이스 (잔상 거의 없이 매 프레임 완전히)
   ctx.fillStyle = 'rgba(0,0,0,0.82)';
   ctx.fillRect(0, 0, W, H);
 
-  const breathe = isActive ? 1 + 0.04 * Math.sin(t * 0.00022) : 1;
+  // audioEnergy로 breathe 증폭: 소리 클수록 커튼이 더 넘실거림
+  const energyBoost = audioEnergy * 3.5;
+  const breathe = isActive ? 1 + (0.04 + energyBoost * 0.18) * Math.sin(t * 0.00022) : 1;
 
   // ── 은빛 커튼 레이어 ──
   for (const v of veils) {
-    v.phase += v.speed;
+    v.phase += v.speed * (1 + energyBoost * 2.5);
     v.y += v.vy;
     if (v.y > 1.3) v.y = -0.3;
     if (v.y < -0.3) v.y = 1.3;
 
     const centerY = v.y * H + Math.sin(v.phase) * v.amp * H;
     const halfH   = v.thick * H * breathe * 0.5;
-    const alphaVal = isActive ? v.alpha * (0.9 + 0.3 * Math.sin(v.phase * 0.6)) : v.alpha * 0.35;
+    const alphaVal = isActive ? v.alpha * (0.9 + 0.3 * Math.sin(v.phase * 0.6)) * (1 + energyBoost * 1.2) : v.alpha * 0.35;
 
     const grd = ctx.createLinearGradient(0, centerY - halfH, 0, centerY + halfH);
     grd.addColorStop(0,   `rgba(195,200,205,0)`);
@@ -228,13 +231,13 @@ function drawFrame(t) {
 
   // ── 미세 파티클 ──
   for (const p of particles) {
-    p.phase += p.speed;
+    p.phase += p.speed * (1 + energyBoost * 1.8);
     p.x += p.vx; p.y += p.vy;
     if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0;
     if (p.y < 0) p.y = 1; if (p.y > 1) p.y = 0;
 
     const pAlpha = isActive
-      ? p.alpha * (0.6 + 0.7 * Math.abs(Math.sin(p.phase)))
+      ? p.alpha * (0.6 + 0.7 * Math.abs(Math.sin(p.phase))) * (1 + energyBoost * 2.0)
       : p.alpha * 0.2;
 
     ctx.beginPath();
@@ -262,12 +265,23 @@ function hideLoading() {
   setTimeout(() => el.remove(), 1500);
 }
 
+let analyser = null, analyserData = null;
+let audioEnergy = 0; // 0~1 smoothed RMS energy
+
 function ensureAudioContext() {
   if (audioCtx) return;
   audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
   masterGain = audioCtx.createGain();
   masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-  masterGain.connect(audioCtx.destination);
+
+  // AnalyserNode: masterGain → analyser → destination
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  analyser.smoothingTimeConstant = 0.85;
+  analyserData = new Uint8Array(analyser.frequencyBinCount);
+
+  masterGain.connect(analyser);
+  analyser.connect(audioCtx.destination);
 
   // 레이어별 GainNode 생성
   for (const key of Object.keys(gains)) {
@@ -278,6 +292,22 @@ function ensureAudioContext() {
     );
     gains[key].connect(masterGain);
   }
+}
+
+// 매 프레임 RMS 에너지 계산 (0~1)
+function updateEnergy() {
+  if (!analyser || !isActive) { audioEnergy *= 0.92; return; }
+  analyser.getByteTimeDomainData(analyserData);
+  let sum = 0;
+  for (let i = 0; i < analyserData.length; i++) {
+    const v = (analyserData[i] - 128) / 128;
+    sum += v * v;
+  }
+  const rms = Math.sqrt(sum / analyserData.length);
+  // 부드럽게 추적 (attack 빠르게, release 느리게)
+  audioEnergy = rms > audioEnergy
+    ? audioEnergy + (rms - audioEnergy) * 0.35
+    : audioEnergy + (rms - audioEnergy) * 0.08;
 }
 
 function loadAudioElement(url) {
